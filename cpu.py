@@ -90,12 +90,14 @@ def make_ops():
 OPS = make_ops()
 
 
-def run(insns, state=None, ip_reg=None, verbose=False):
+def run(insns, state=None, ip_reg=None, verbose=False, break_on=None):
     decodes = analyse_prog(insns, ip_reg)
     if state is None:
         state = [0, 0, 0, 0, 0, 0]
     ip = 0
     while 0 <= ip < len(insns):
+        if ip == break_on:
+            break
         op, args = insns[ip]
         if ip_reg is not None:
             state[ip_reg] = ip
