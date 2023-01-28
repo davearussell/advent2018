@@ -1,7 +1,10 @@
 #! /usr/bin/python3
 import json
-import operator
+import os
 import sys
+MYDIR = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.dirname(MYDIR))
+import cpu
 
 
 def parse_input(path):
@@ -19,50 +22,14 @@ def parse_input(path):
     return samples, prog
 
 
-def make_op(op, lhs_type, rhs_type):
-    def fn(state, a, b, c):
-        if lhs_type == 'r':
-            a = state[a]
-        if rhs_type == 'r':
-            b = state[b]
-        state = state.copy()
-        state[c] = op(a, b)
-        return state
-    return fn
-
-
-def make_ops():
-    fns = {
-        'add': operator.add,
-        'mul': operator.mul,
-        'ban': operator.and_,
-        'bor': operator.or_,
-        'set': lambda a, b: a,
-        'gt': lambda a, b: 1 if a > b else 0,
-        'eq': lambda a, b: 1 if a == b else 0,
-    }
-    ops = {}
-    for name in ['add', 'mul', 'ban', 'bor']:
-        for mode in ['r', 'i']:
-            ops[name + mode] = make_op(fns[name], 'r', mode)
-    for name in ['gt', 'eq']:
-        for mode in ['ir', 'ri', 'rr']:
-                ops[name + mode] = make_op(fns[name], mode[0], mode[1])
-    for name in ['set']:
-        for mode in ['r', 'i']:
-                ops[name + mode] = make_op(fns[name], mode, 'x')
-    return ops
-
-
 def main(input_file):
     samples, prog = parse_input(input_file)
-    ops_by_name = make_ops()
 
     p1_count = 0
     candidates = {}
     for i, sample in enumerate(samples):
         opcode, a, b, c = sample['insn']
-        matches = {name for (name, op) in ops_by_name.items()
+        matches = {name for (name, op) in cpu.OPS.items()
                    if op(sample['before'], a, b, c) == sample['after']}
         if len(matches) >= 3:
             p1_count += 1
@@ -71,21 +38,19 @@ def main(input_file):
         candidates[opcode] &= matches
     print("Part 1:", p1_count)
 
-    ops = {}
+    op_names = {}
     while candidates:
         for opcode, names in candidates.items():
             if len(names) == 1:
                 del candidates[opcode]
                 name = names.pop()
-                ops[opcode] = ops_by_name[name]
+                op_names[opcode] = name
                 for _names in candidates.values():
                     _names -= {name}
                 break
 
-    state = [0, 0, 0, 0]
-    for opcode, a, b, c in prog:
-        state = ops[opcode](state, a, b, c)
-    print("Part 2:", state[0])
+    insns = [(op_names[opcode], (a, b, c)) for (opcode, a, b, c) in prog]
+    print("Part 2:", cpu.run(insns)[0])
 
 
 if __name__ == '__main__':
